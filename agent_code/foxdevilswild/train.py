@@ -1,5 +1,6 @@
 import pickle
 import random
+import numpy as np
 from collections import namedtuple, deque
 from typing import List
 
@@ -30,7 +31,32 @@ def setup_training(self):
     # (s, a, r, s')
     # todo: initialize  Q-matrix of size n*6 to 0 where n is number of states
     # todo: initialize list of rewards
+    self.rewards = {
+    'MOVED_LEFT': 0,
+    'MOVED_RIGHT': 0,
+    'MOVED_UP' : 0,
+    'MOVED_DOWN' : 0,
+    'WAITED' : 0,
+    'INVALID_ACTION': -100,
+
+    'BOMB_DROPPED' : 0,
+    'BOMB_EXPLODED' : 0,
+
+    'CRATE_DESTROYED' :5,
+    'COIN_FOUND' : 5,
+    'COIN_COLLECTED' : 10,
+
+    'KILLED_OPPONENT' : 30,
+    'KILLED_SELF' : -30,
+
+    'GOT_KILLED': -30,
+    'OPPONENT_ELIMINATED' : 0,
+    'SURVIVED_ROUND' : 0
+    }
     # todo: initialize learning rate and discount rate
+    self.learning_rate = 0.3
+    self.discount_rate = 0.7
+
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
 
 
@@ -51,10 +77,18 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
+    if self_action == None:
+        return None
+
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
     # todo: set old game state based on old_game_state
+    old_state = state_to_features(old_game_state)
     # todo: set current game state based on new_game_state
+    new_state = state_to_features(new_game_state)
     # todo: update Q-values : Q[old state, action] = Q[old state, action] + lr * (reward + gamma * np.max(Q[new state, :]) — Q[old state, action])
+    reward = np.sum([self.rewards[i] for i in events])
+    action = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB'].index(self_action)
+    self.Q[old_state, action] += self.learning_rate * (reward + self.discount_rate*np.max(self.Q[old_state, :])-self.Q[old_state, action])
 
     # Idea: Add your own events to hand out rewards
     if ...:
