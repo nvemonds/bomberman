@@ -7,6 +7,29 @@ import numpy as np
 
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+# Diskretisiere den Winkel der zwischen -pi/2 und pi/2
+discrete_intervalls = np.linspace(-np.pi / 2, np.pi / 2, num=17)
+assert len(discrete_intervalls) == 17, "Die Diskretisierung der Winkel hat nicht funktioniert."
+# Gibt eine Liste der Mean Winkel in jedem Intervall an
+# mean_winkels = [(discrete_intervalls[index + 1] - discrete_intervalls[index]) / 2 for index in
+#                range(len(discrete_intervalls) - 1)]
+
+discretized_winkels = list(range(17))
+discretized_radii = range(0, 22)
+
+# zustandsdict
+zustandsdict = {}
+counter = 0
+
+for mean_winkel, radius in product(discretized_winkels, discretized_radii):
+    zustandsdict[counter] = (mean_winkel, radius, )
+    zustandsdict[counter+17*22] = (mean_winkel, radius, 0)
+    zustandsdict[counter+2*17*22] = (mean_winkel, radius, 1)
+    zustandsdict[counter+3*17*22] = (mean_winkel, radius, 2)
+
+    counter += 1
+
+reverse_dict = {v: k for k, v in zustandsdict.items()}
 
 
 def setup(self):
@@ -34,8 +57,7 @@ def setup(self):
         with open("my-saved-model.pt", "rb") as file:
             self.model = pickle.load(file)
 
-def getState(self,game_state):
-    return int_states
+
 
 def act(self, game_state: dict) -> str:
     """
@@ -51,21 +73,25 @@ def act(self, game_state: dict) -> str:
     status = state_to_features(game_state)
 
     # todo Exploration vs exploitation
-    random_prob = .1
+    random_prob = .2
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
+        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .2, .0])
 
     self.logger.debug("Querying model for action.")
 
     #return action of current state with greatest Q value
-    # Forward
-    # return np.random.choice(ACTIONS, p = self.model)
 
-    row           = self.Q[status,:]
-    action_index  = np.argmax(row)
-    action        = ACTIONS[action]
+    #self.model = np.zeros((17*22*4,6))
+    #with open("my-saved-model.pt", "wb") as file:
+    #    pickle.dump(self.model, file)
+
+    Q = np.load("my-saved-model.pt", allow_pickle=True)
+
+    action_index  = np.argmax(Q[status,:])
+    action        = ACTIONS[action_index]
+    print(Q[status,:])
     return action
 
 
@@ -101,54 +127,45 @@ def state_to_features(game_state: dict) -> np.array:
 
     # List of coin positions
     coin_positions      = game_state['coins']
-    own_position       = game_state['self'][-1]
+    own_position       = np.array(game_state['self'][-1])
 
     # List of relative coin positions
     relative_coin_positions = [(item[0]- own_position[0],item[1] - own_position[1]) for item in coin_positions]
-
     # Calculate Radii of the coins
     fun   = lambda x : np.sqrt(x[0]**2 + x[1]**2)
-    radii = map(fun, relative_coin_positions)
+    radii = [fun(x) for x in relative_coin_positions]
+    """
+    print("coin_positions ",len(coin_positions))
+    print("own_position ",len(own_position))
+    print("relative_coin_positions ",len(relative_coin_positions))
+    print("radii ", len(radii))"""
 
     # Definiere nächstes target als das mit der kleinsten Distanz
-    next_destination = relative_coin_positions[np.argmax(radii)]
-
+    # Definiere nächstes target als das mit der kleinsten Distanz
+    minimal_radius = np.argmin(radii)
+    next_destination = relative_coin_positions[minimal_radius]
     # Diskretisiere die Distanz zum nächsten Element (noch zu verbessern)
-    list_of_possible_discretized_radii = list(range(0,22))
-    discretized_radius                 = int(radii)
+    discretized_radius = int(minimal_radius)
+
 
     ## Calculiere den Winkel zu dem Element
-    # Calculiere
-    winkel           = np.arctan2(y,x)
-    # Diskretisiere den Winkel der zwischen -pi/2 und pi/2
-    discrete_intervalls = np.linspace(-np.pi/2, np.pi/2, num=17)
-    assert len(discrete_intervalls) == 17, "Die Diskretisierung der Winkel hat nicht funktioniert."
-    # Gibt eine Liste der Mean Winkel in jedem Intervall an
-    mean_winkels         = [(discrete_intervalls[index + 1]-discrete_intervalls[index])/2 for index in range(len(discrete_intervalls)-1)]
+    x = next_destination[0]
+    y = next_destination[1]
+    winkel = np.arctan2(y, x)
 
 
-    try:
-        del winkel
-    except:
-        None
-    for index in range(len(discrete_intervalls)):
+    for index in range(len(discrete_intervalls)-1):
         if discrete_intervalls[index] < winkel  and winkel < discrete_intervalls[index+1]:
             break
-    discretized_winkel = index
+    discretized_winkel = discretized_winkels[index]
 
-    # Hier wird ein Zustandsdict definiert, welches den Zustandsindex auf die Kombination (Radius, Winkel)
-    # abbildet. Das dient vor allem der Nachverfolung.
-    zustandsdict = {}
-    reverse_dict = {}
-    counter      = 0
-    
-    for mean_winkel, radius in product(mean_winkels,list_of_possible_discretized_radii):
-        zustandsdict[counter]               = (mean_winkel, radius)
-        reverse_dict[(mean_winkel, radius)] = counter
-        counter                            += 1
+    assert len(zustandsdict.keys()) == 17*22*4, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 17*22 zusammen"
 
-    assert len(zustandsdict.keys()) == 16*2, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 16*2 zusammen"
+    dummy = 0
+    if game_state["field"][tuple(own_position-[0,1])] == -1: #or game_state["field"][tuple(own_position+[0,1])] == -1:
+        dummy =1
+    if game_state["field"][tuple(own_position-[1,0])] == -1: #or game_state["field"][tuple(own_position+[1,0])] == -1:
+        dummy =2
 
-    # Hier ist das finale Resultat:
-    state = reverse_dict[(discretized_winkel,discretized_radius)]
+    state = reverse_dict[(discretized_winkel,discretized_radius, dummy)]
     return state

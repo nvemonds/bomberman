@@ -36,15 +36,15 @@ def setup_training(self):
     'MOVED_RIGHT': 0,
     'MOVED_UP' : 0,
     'MOVED_DOWN' : 0,
-    'WAITED' : 0,
+    'WAITED' : -1,
     'INVALID_ACTION': -100,
 
     'BOMB_DROPPED' : 0,
     'BOMB_EXPLODED' : 0,
 
     'CRATE_DESTROYED' :5,
-    'COIN_FOUND' : 5,
-    'COIN_COLLECTED' : 10,
+    'COIN_FOUND' : 0,
+    'COIN_COLLECTED' : 50,
 
     'KILLED_OPPONENT' : 30,
     'KILLED_SELF' : -30,
@@ -58,6 +58,8 @@ def setup_training(self):
     self.discount_rate = 0.7
 
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.Q = np.zeros((17 * 22*4, 6))
+
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -88,8 +90,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     # todo: update Q-values : Q[old state, action] = Q[old state, action] + lr * (reward + gamma * np.max(Q[new state, :]) — Q[old state, action])
     reward = np.sum([self.rewards[i] for i in events])
     action = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB'].index(self_action)
-    self.Q[old_state, action] += self.learning_rate * (reward + self.discount_rate*np.max(self.Q[old_state, :])-self.Q[old_state, action])
-
+    #print("reward: ",reward)
+    #print("events:", events)
+    self.Q[old_state, action] += self.learning_rate * (reward + self.discount_rate*np.max(self.Q[new_state, :])-self.Q[old_state, action])
+    #print(self.Q[old_state, action])
     # Idea: Add your own events to hand out rewards
     if ...:
         events.append(PLACEHOLDER_EVENT)
@@ -99,6 +103,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
+    old_state = state_to_features(last_game_state)
+    reward = np.sum([self.rewards[i] for i in events])
+    action = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB'].index(last_action)
+    #print("reward: ",reward)
+    #print("events:", events)
+    self.Q[old_state, action] += self.learning_rate * (reward + self.discount_rate*np.max(self.Q[old_state, :])-self.Q[old_state, action])
+    #print(self.Q[old_state, action])
     """
     Called at the end of each game or when the agent died to hand out final rewards.
 
@@ -115,7 +126,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
-        pickle.dump(self.model, file)
+        pickle.dump(self.Q, file)
 
 
 def reward_from_events(self, events: List[str]) -> int:
