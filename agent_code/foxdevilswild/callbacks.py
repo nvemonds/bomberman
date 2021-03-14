@@ -43,11 +43,11 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(len(ACTIONS))
-        self.model = weights / weights.sum()
+        self.Q = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
-            self.model = pickle.load(file)
+            self.Q = pickle.load(file)
 
 
 
@@ -73,15 +73,10 @@ def act(self, game_state: dict) -> str:
 
     self.logger.debug("Querying model for action.")
 
-    #return action of current state with greatest Q value
+    #load Q matrix from last training process
+    self.Q = np.load("my-saved-model.pt", allow_pickle=True)
 
-    #self.model = np.zeros((17*22*4,6))
-    #with open("my-saved-model.pt", "wb") as file:
-    #    pickle.dump(self.model, file)
-
-    Q = np.load("my-saved-model.pt", allow_pickle=True)
-
-    action_index  = np.argmax(Q[status,:])
+    action_index  = np.argmax(self.Q[status,:])
     action        = ACTIONS[action_index]
     #print(Q[status,:])
     return action
@@ -102,47 +97,28 @@ def state_to_features(game_state: dict) -> np.array:
     :return: np.array
     """
 
-    """ Example Code
-    # This is the dict before the game begins and after it ends
-    if game_state is None:
-        return None
-
-    # For example, you could construct several channels of equal shape, ...
-    channels = []
-    channels.append(...)
-    # concatenate them as a feature tensor (they must have the same shape), ...
-    stacked_channels = np.stack(channels)
-    # and return them as a vector
-
-    return stacked_channels.reshape(-1)
-    """
-
-    # List of coin positions
     coin_positions      = game_state['coins']
     own_position       = np.array(game_state['self'][-1])
-
-    # List of relative coin positions
     relative_coin_positions = [(item[0]- own_position[0],item[1] - own_position[1]) for item in coin_positions]
-    # Calculate relative Radii of the coins
     radii = [norm(x) for x in relative_coin_positions]
     minimal_radius = np.argmin(radii)
 
-    ## Calculiere den Winkel zu dem Element
+    # Calculate angle w.r.t nearest coin
     x = relative_coin_positions[minimal_radius][0]
     y = relative_coin_positions[minimal_radius][1]
-    winkel = np.arctan2(x, y)
+    angle = np.arctan2(x, y)
 
-    #print(winkel/(2*np.pi)*360)
+    #print(angle/(2*np.pi)*360)
 
-    discretized_winkel = int(winkel *2.86)
+    discretized_winkel = int(angle *2.86)
     #print(discretized_winkel)
     assert len(zustandsdict.keys()) == 17*3, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 17*22 zusammen"
 
-    dummy = 0
+    borderstatus = 0
     if game_state["field"][tuple(own_position-[0,1])] == -1 or game_state["field"][tuple(own_position-[0,1])] == 1:
-        dummy =1
+        borderstatus =1
     if game_state["field"][tuple(own_position-[1,0])] == -1 or game_state["field"][tuple(own_position-[1,0])] == 1:
-        dummy =2
+        borderstatus =2
 
-    state = reverse_dict[(discretized_winkel, dummy)]
+    state = reverse_dict[(discretized_winkel, borderstatus)]
     return state
