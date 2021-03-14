@@ -74,11 +74,11 @@ def act(self, game_state: dict) -> str:
     self.logger.debug("Querying model for action.")
 
     #load Q matrix from last training process
-    self.Q = np.load("my-saved-model.pt", allow_pickle=True)
+    #self.Q = np.load("my-saved-model.pt", allow_pickle=True)
 
     action_index  = np.argmax(self.Q[status,:])
     action        = ACTIONS[action_index]
-    #print(Q[status,:])
+    #print(self.Q[status,:])
     return action
 
 
@@ -108,17 +108,13 @@ def state_to_features(game_state: dict) -> np.array:
     y = relative_coin_positions[minimal_radius][1]
     angle = np.arctan2(x, y)
 
-    #print(angle/(2*np.pi)*360)
 
     discretized_winkel = int(angle *2.86)
-    #print(discretized_winkel)
-    assert len(zustandsdict.keys()) == 17*3, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 17*22 zusammen"
 
     borderstatus = 0
-    if game_state["field"][tuple(own_position-[0,1])] == -1 or game_state["field"][tuple(own_position-[0,1])] == 1:
+    if not game_state["field"][tuple(own_position-[0,1])] == 0:# or game_state["field"][tuple(own_position-[0,1])] == 1:
         borderstatus =1
-    if game_state["field"][tuple(own_position-[1,0])] == -1 or game_state["field"][tuple(own_position-[1,0])] == 1:
+    if not game_state["field"][tuple(own_position-[1,0])] == 0:# or game_state["field"][tuple(own_position-[1,0])] == 1:
         borderstatus =2
 
-    state = reverse_dict[(discretized_winkel, borderstatus)]
-    return state
+    return reverse_dict[(discretized_winkel, borderstatus)]

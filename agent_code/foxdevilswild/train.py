@@ -36,7 +36,7 @@ def setup_training(self):
     'MOVED_RIGHT': 0,
     'MOVED_UP' : 0,
     'MOVED_DOWN' : 0,
-    'WAITED' : -1,
+    'WAITED' : -5,
     'INVALID_ACTION': -100,
 
     'BOMB_DROPPED' : 0,
@@ -95,11 +95,11 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.Q[old_state, action] += self.learning_rate * (reward + self.discount_rate*np.max(self.Q[new_state, :])-self.Q[old_state, action])
     #print(self.Q[old_state, action])
     # Idea: Add your own events to hand out rewards
-    if ...:
-        events.append(PLACEHOLDER_EVENT)
+    #if ...:
+    #    events.append(PLACEHOLDER_EVENT)
 
     # state_to_features is defined in callbacks.py
-    self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
+    #self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
