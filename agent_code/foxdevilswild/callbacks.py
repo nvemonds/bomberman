@@ -7,14 +7,15 @@ import numpy as np
 
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+norm = lambda x: np.sqrt(x[0]**2+x[1]**2)
 # Diskretisiere den Winkel der zwischen -pi/2 und pi/2
-discrete_intervalls = np.linspace(-np.pi / 2, np.pi / 2, num=17)
-assert len(discrete_intervalls) == 17, "Die Diskretisierung der Winkel hat nicht funktioniert."
+#discrete_intervalls = np.linspace(-8, 8, num=17)
+#assert len(discrete_intervalls) == 17, "Die Diskretisierung der Winkel hat nicht funktioniert."
 # Gibt eine Liste der Mean Winkel in jedem Intervall an
 # mean_winkels = [(discrete_intervalls[index + 1] - discrete_intervalls[index]) / 2 for index in
 #                range(len(discrete_intervalls) - 1)]
 
-discretized_winkels = list(range(17))
+discretized_winkels = np.linspace(-8, 8, num=17)
 discretized_radii = range(0, 22)
 
 # zustandsdict
@@ -91,7 +92,7 @@ def act(self, game_state: dict) -> str:
 
     action_index  = np.argmax(Q[status,:])
     action        = ACTIONS[action_index]
-    print(Q[status,:])
+    #print(Q[status,:])
     return action
 
 
@@ -131,34 +132,28 @@ def state_to_features(game_state: dict) -> np.array:
 
     # List of relative coin positions
     relative_coin_positions = [(item[0]- own_position[0],item[1] - own_position[1]) for item in coin_positions]
-    # Calculate Radii of the coins
-    fun   = lambda x : np.sqrt(x[0]**2 + x[1]**2)
-    radii = [fun(x) for x in relative_coin_positions]
-    """
-    print("coin_positions ",len(coin_positions))
-    print("own_position ",len(own_position))
-    print("relative_coin_positions ",len(relative_coin_positions))
-    print("radii ", len(radii))"""
-
-    # Definiere nächstes target als das mit der kleinsten Distanz
-    # Definiere nächstes target als das mit der kleinsten Distanz
+    # Calculate relative Radii of the coins
+    radii = [norm(x) for x in relative_coin_positions]
     minimal_radius = np.argmin(radii)
-    next_destination = relative_coin_positions[minimal_radius]
     # Diskretisiere die Distanz zum nächsten Element (noch zu verbessern)
-    discretized_radius = int(minimal_radius)
+    discretized_radius = int(np.min(radii))
 
 
     ## Calculiere den Winkel zu dem Element
-    x = next_destination[0]
-    y = next_destination[1]
-    winkel = np.arctan2(y, x)
+    x = relative_coin_positions[minimal_radius][0]
+    y = relative_coin_positions[minimal_radius][1]
+    winkel = np.arctan2(x, y)
 
+    #print(winkel/(2*np.pi)*360)
 
+    """
     for index in range(len(discrete_intervalls)-1):
         if discrete_intervalls[index] < winkel  and winkel < discrete_intervalls[index+1]:
             break
-    discretized_winkel = discretized_winkels[index]
+    discretized_winkel = discretized_winkels[index]"""
 
+    discretized_winkel = int(winkel *2.86)
+    #print(discretized_winkel)
     assert len(zustandsdict.keys()) == 17*22*4, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 17*22 zusammen"
 
     dummy = 0
