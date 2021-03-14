@@ -36,29 +36,30 @@ def setup_training(self):
     'MOVED_RIGHT': 0,
     'MOVED_UP' : 0,
     'MOVED_DOWN' : 0,
-    'WAITED' : -5,
-    'INVALID_ACTION': -100,
+    'WAITED' : -2,
+    'INVALID_ACTION': -300,
 
-    'BOMB_DROPPED' : 0,
+    'BOMB_DROPPED' : 10,
     'BOMB_EXPLODED' : 0,
 
     'CRATE_DESTROYED' :5,
-    'COIN_FOUND' : 0,
+    'COIN_FOUND' : 5,
     'COIN_COLLECTED' : 50,
 
     'KILLED_OPPONENT' : 30,
-    'KILLED_SELF' : -30,
+    'KILLED_SELF' : -100,
 
-    'GOT_KILLED': -30,
+    'GOT_KILLED': -100,
     'OPPONENT_ELIMINATED' : 0,
-    'SURVIVED_ROUND' : 0
+    'SURVIVED_ROUND' : 10
     }
     # todo: initialize learning rate and discount rate
     self.learning_rate = 0.3
-    self.discount_rate = 0.7
+    self.discount_rate = 0.8
 
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
-    self.Q = np.zeros((17 * 3, 6))
+    with open("my-saved-model.pt", "rb") as file:
+        self.Q = pickle.load(file)
 
 
 
@@ -103,6 +104,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
+    if last_action == None:
+        return None
     old_state = state_to_features(last_game_state)
     reward = np.sum([self.rewards[i] for i in events])
     action = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB'].index(last_action)
