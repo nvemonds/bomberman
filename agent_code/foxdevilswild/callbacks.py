@@ -1,7 +1,6 @@
 import os
 import pickle
 import random
-from itertools import product
 
 import numpy as np
 
@@ -38,12 +37,13 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    # todo: define list of states based on game_state
 
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(len(ACTIONS))
-        self.Q = weights / weights.sum()
+        self.Q = np.zeros((17 * 3, 6))
+        with open("my-saved-model.pt", "wb") as file:
+            pickle.dump(self.Q, file)
     else:
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
