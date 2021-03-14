@@ -8,13 +8,6 @@ import numpy as np
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 norm = lambda x: np.sqrt(x[0]**2+x[1]**2)
-# Diskretisiere den Winkel der zwischen -pi/2 und pi/2
-#discrete_intervalls = np.linspace(-8, 8, num=17)
-#assert len(discrete_intervalls) == 17, "Die Diskretisierung der Winkel hat nicht funktioniert."
-# Gibt eine Liste der Mean Winkel in jedem Intervall an
-# mean_winkels = [(discrete_intervalls[index + 1] - discrete_intervalls[index]) / 2 for index in
-#                range(len(discrete_intervalls) - 1)]
-
 discretized_winkels = np.linspace(-8, 8, num=17)
 discretized_radii = range(0, 22)
 
@@ -22,12 +15,10 @@ discretized_radii = range(0, 22)
 zustandsdict = {}
 counter = 0
 
-for mean_winkel, radius in product(discretized_winkels, discretized_radii):
-    zustandsdict[counter] = (mean_winkel, radius, )
-    zustandsdict[counter+17*22] = (mean_winkel, radius, 0)
-    zustandsdict[counter+2*17*22] = (mean_winkel, radius, 1)
-    zustandsdict[counter+3*17*22] = (mean_winkel, radius, 2)
-
+for mean_winkel in discretized_winkels:
+    zustandsdict[counter] = (mean_winkel, 0)
+    zustandsdict[counter+17] = (mean_winkel, 1)
+    zustandsdict[counter+2*17] = (mean_winkel, 2)
     counter += 1
 
 reverse_dict = {v: k for k, v in zustandsdict.items()}
@@ -135,9 +126,6 @@ def state_to_features(game_state: dict) -> np.array:
     # Calculate relative Radii of the coins
     radii = [norm(x) for x in relative_coin_positions]
     minimal_radius = np.argmin(radii)
-    # Diskretisiere die Distanz zum nächsten Element (noch zu verbessern)
-    discretized_radius = int(np.min(radii))
-
 
     ## Calculiere den Winkel zu dem Element
     x = relative_coin_positions[minimal_radius][0]
@@ -146,21 +134,15 @@ def state_to_features(game_state: dict) -> np.array:
 
     #print(winkel/(2*np.pi)*360)
 
-    """
-    for index in range(len(discrete_intervalls)-1):
-        if discrete_intervalls[index] < winkel  and winkel < discrete_intervalls[index+1]:
-            break
-    discretized_winkel = discretized_winkels[index]"""
-
     discretized_winkel = int(winkel *2.86)
     #print(discretized_winkel)
-    assert len(zustandsdict.keys()) == 17*22*4, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 17*22 zusammen"
+    assert len(zustandsdict.keys()) == 17*3, "Die berechneten Zustände stimmen nicht mit der initierten Matrix 17*22 zusammen"
 
     dummy = 0
-    if game_state["field"][tuple(own_position-[0,1])] == -1: #or game_state["field"][tuple(own_position+[0,1])] == -1:
+    if game_state["field"][tuple(own_position-[0,1])] == -1 or game_state["field"][tuple(own_position-[0,1])] == 1:
         dummy =1
-    if game_state["field"][tuple(own_position-[1,0])] == -1: #or game_state["field"][tuple(own_position+[1,0])] == -1:
+    if game_state["field"][tuple(own_position-[1,0])] == -1 or game_state["field"][tuple(own_position-[1,0])] == 1:
         dummy =2
 
-    state = reverse_dict[(discretized_winkel,discretized_radius, dummy)]
+    state = reverse_dict[(discretized_winkel, dummy)]
     return state

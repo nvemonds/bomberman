@@ -58,7 +58,7 @@ def setup_training(self):
     self.discount_rate = 0.7
 
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
-    self.Q = np.zeros((17 * 22*4, 6))
+    self.Q = np.zeros((17 * 3, 6))
 
 
 
