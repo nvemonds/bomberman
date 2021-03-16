@@ -6,14 +6,13 @@ import numpy as np
 from itertools import  product
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 norm = lambda x: np.sqrt(x[0]**2+x[1]**2)
-discretized_angles =np.arange(17)
 
 # zustandsdict
 zustandsdict = {}
 counter = 0
 
-for angle, borderstatus, bombstatus in product(discretized_angles,[0,1,2],[0,1]):
-    zustandsdict[counter] = (angle, borderstatus, bombstatus)
+for a, b, c,d, e, f, g, h in product(range(21),range(5),range(5),[0,1], [0,1], [0,1], [0,1], [0, 1, 2]):
+    zustandsdict[counter] = (a, b, c,d, e, f, g, h)
     counter += 1
 
 reverse_dict = {v: k for k, v in zustandsdict.items()}
@@ -34,16 +33,16 @@ def setup(self):
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
 
-    if (self.train or not os.path.isfile("my-saved-model.pt")) and 0==1:
+    if self.train or not os.path.isfile("my-saved-model.pt"):
+        print("eeeeeeeee")
         self.logger.info("Setting up model from scratch.")
-        self.Q = np.random.rand(17 * 3*2, 6)*100
+        self.Q = np.zeros((21*5*5*2*2*2*2*3, 6))
         with open("my-saved-model.pt", "wb") as file:
             pickle.dump(self.Q, file)
     else:
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
             self.Q = pickle.load(file)
-
 
 
 def act(self, game_state: dict) -> str:
@@ -64,16 +63,12 @@ def act(self, game_state: dict) -> str:
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .1, .1])
+        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .0, .2])
 
     self.logger.debug("Querying model for action.")
-
-    #load Q matrix from last training process
-    #self.Q = np.load("my-saved-model.pt", allow_pickle=True)
-
-    action_index  = np.argmax(self.Q[status,:])
+    action_index  = np.argmax(self.Q[status, :])
     action        = ACTIONS[action_index]
-    #print(self.Q[status,:])
+    #print(self.Q[status, :])
     return action
 
 
@@ -92,8 +87,10 @@ def state_to_features(game_state: dict) -> np.array:
     :return: np.array
     """
     own_position = np.array(game_state['self'][-1])
+    field_status = game_state["field"]
     #the following block of code refers to the state property of coin finding
-    coin_positions      = game_state['coins']
+    coin_positions = game_state['coins']
+
     if any(coin_positions):
         relative_coin_positions = coin_positions-own_position
         radii =  np.apply_along_axis(norm,1,relative_coin_positions)
@@ -102,23 +99,49 @@ def state_to_features(game_state: dict) -> np.array:
         x = relative_coin_positions[minimal_radius][0]
         y = relative_coin_positions[minimal_radius][1]
         angle = np.arctan2(x, y)+np.pi
-        discretized_angle = int(angle *2.545)
-        #print(discretized_angle)
+        coin_angle = np.round(angle/(np.pi/2))
     else:
-        discretized_angle = 16
+        coin_angle = 0
 
-    #the following block of code refers to the state property of invalid movements
-    borderstatus = 0
-    if not game_state["field"][tuple(own_position-[0,1])] == 0:# or game_state["field"][tuple(own_position-[0,1])] == 1:
-        borderstatus =1
-    if not game_state["field"][tuple(own_position-[1,0])] == 0:# or game_state["field"][tuple(own_position-[1,0])] == 1:
-        borderstatus =2
+    #the following block of code refers to the state property of crates
+    crate_angle = 0
+    crate_distance = 0
+    if (field_status == 1).any():
+        relative_crate_positions = np.argwhere(field_status==1)-own_position
+        nearest_crate = np.argmin(np.apply_along_axis(norm,1,relative_crate_positions))
+        x = relative_crate_positions[nearest_crate][0]
+        y = relative_crate_positions[nearest_crate][1]
+        angle = np.arctan2(x, y)+np.pi
+        crate_angle = np.round(angle/(np.pi/2))
+        crate_distance = int(norm([x,y]))
+
+
+    #the following block of code refers to the state property of invalid movements and explosions
+    stone_up = 0
+    stone_down = 0
+    stone_left = 0
+    stone_right = 0
+    if field_status[tuple(own_position - [0,1])] == -1 or game_state["explosion_map"][tuple(own_position - [0,1])] != 0:
+        stone_up = 1
+    if field_status[tuple(own_position - [1,0])] == -1 or game_state["explosion_map"][tuple(own_position - [1,0])] != 0:
+        stone_down = 1
+    if field_status[tuple(own_position + [0,1])] == -1 or game_state["explosion_map"][tuple(own_position + [0,1])] != 0:
+        stone_left = 1
+    if field_status[tuple(own_position + [1,0])] == -1 or game_state["explosion_map"][tuple(own_position + [1,0])] != 0:
+        stone_right = 1
+
 
     #the following block of code refers to the state property of placing bombs
-    bombstatus = 0
-    bombs = np.array(sum(np.array(game_state["bombs"]).reshape((len(game_state["bombs"]), 2))[:, 0], ())).reshape(len(game_state["bombs"]),2)
+    bombs = np.array(sum(np.array(game_state["bombs"]).reshape((len(game_state["bombs"]), 2))[:, 0], ())).reshape(
+        len(game_state["bombs"]), 2)
 
-    if bombs.any() and (own_position-bombs).flatten().any() and np.apply_along_axis(norm,1,own_position - bombs).any()<4:
-        bombstatus = 1
-    #print("state: ", reverse_dict[(discretized_angle, borderstatus, bombstatus)])
-    return reverse_dict[(discretized_angle, borderstatus, bombstatus)]
+    bombstatus = 0
+    if bombs.any():
+        if ((bombs-own_position)[:,0]==0).any() and np.apply_along_axis(norm,1,bombs-own_position).any()<4:
+            bombstatus = 1
+        elif ((bombs-own_position)[:,1]==0).any() and np.apply_along_axis(norm,1,bombs-own_position).any()<4:
+            bombstatus = 2
+    print(bombstatus)
+    #print(((bombs-own_position)[:,0]==0).any(),((bombs-own_position)[:,1]==1).any())
+    #print(crate_distance)
+    return reverse_dict[(crate_distance,crate_angle,coin_angle, stone_up, stone_down, stone_left, stone_right, bombstatus)]
