@@ -36,26 +36,26 @@ def setup_training(self):
     'MOVED_RIGHT': 0,
     'MOVED_UP' : 0,
     'MOVED_DOWN' : 0,
-    'WAITED' : 0,
+    'WAITED' : -5,
     'INVALID_ACTION': -100,
 
-    'BOMB_DROPPED' : 10,
-    'BOMB_EXPLODED' : 10,
+    'BOMB_DROPPED' : 0,
+    'BOMB_EXPLODED' : 0,
 
-    'CRATE_DESTROYED' :100,
+    'CRATE_DESTROYED' :20,
     'COIN_FOUND' : 0,
-    'COIN_COLLECTED' : 50,
+    'COIN_COLLECTED' : 100,
 
-    'KILLED_OPPONENT' : 50,
-    'KILLED_SELF' : -130,
+    'KILLED_OPPONENT' : 20,
+    'KILLED_SELF' : 0,
 
-    'GOT_KILLED': -50,
+    'GOT_KILLED': -100,
     'OPPONENT_ELIMINATED' : 0,
-    'SURVIVED_ROUND' : 10
+    'SURVIVED_ROUND' : 0
     }
     # todo: initialize learning rate and discount rate
     self.learning_rate = 0.3
-    self.discount_rate = 0.7
+    self.discount_rate = 0.9
 
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     with open("my-saved-model.pt", "rb") as file:
@@ -83,13 +83,21 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if self_action == None:
         return None
 
+    reward = 0
+
+    crate_dist_reduced = (old_game_state["field"] == 1).any() and\
+                         (np.min(np.linalg.norm(np.argwhere(old_game_state["field"]==1)-np.array(old_game_state['self'][-1]),1)) >\
+                          np.min(np.linalg.norm(np.argwhere(new_game_state["field"]==1)-np.array(new_game_state['self'][-1]),1)))
+    if crate_dist_reduced:
+        reward += 15
+
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
     # todo: set old game state based on old_game_state
     old_state = state_to_features(old_game_state)
     # todo: set current game state based on new_game_state
     new_state = state_to_features(new_game_state)
     # todo: update Q-values : Q[old state, action] = Q[old state, action] + lr * (reward + gamma * np.max(Q[new state, :]) — Q[old state, action])
-    reward = np.sum([self.rewards[i] for i in events])
+    reward += np.sum([self.rewards[i] for i in events])
     action = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB'].index(self_action)
     #print("reward: ",reward)
     #print("events:", events)

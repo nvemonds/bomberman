@@ -11,8 +11,8 @@ norm = lambda x: np.sqrt(x[0]**2+x[1]**2)
 zustandsdict = {}
 counter = 0
 
-for a, b, c,d, e, f, g, h in product(range(21),range(5),range(5),[0,1], [0,1], [0,1], [0,1], [0, 1, 2]):
-    zustandsdict[counter] = (a, b, c,d, e, f, g, h)
+for b,c,d, e, f, g, h in product(range(5),range(5),range(3), range(3), range(3), range(3), range(4)):
+    zustandsdict[counter] = (b, c,d, e, f, g, h)
     counter += 1
 
 reverse_dict = {v: k for k, v in zustandsdict.items()}
@@ -36,7 +36,7 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         print("eeeeeeeee")
         self.logger.info("Setting up model from scratch.")
-        self.Q = np.zeros((21*5*5*2*2*2*2*3, 6))
+        self.Q = np.zeros((5*5*3*3*3*3*4, 6))
         with open("my-saved-model.pt", "wb") as file:
             pickle.dump(self.Q, file)
     else:
@@ -59,7 +59,7 @@ def act(self, game_state: dict) -> str:
     status = state_to_features(game_state)
 
     # todo Exploration vs exploitation
-    random_prob = 0.1
+    random_prob = 0.2
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
@@ -103,7 +103,8 @@ def state_to_features(game_state: dict) -> np.array:
     else:
         coin_angle = 0
 
-    #the following block of code refers to the state property of crates
+    #the following block of code refers to the state property of neighboring tiles
+    up, down, left, right = 0, 0, 0, 0
     crate_angle = 0
     crate_distance = 0
     if (field_status == 1).any():
@@ -111,37 +112,51 @@ def state_to_features(game_state: dict) -> np.array:
         nearest_crate = np.argmin(np.apply_along_axis(norm,1,relative_crate_positions))
         x = relative_crate_positions[nearest_crate][0]
         y = relative_crate_positions[nearest_crate][1]
-        angle = np.arctan2(x, y)+np.pi
-        crate_angle = np.round(angle/(np.pi/2))
+        crate_angle = np.round(np.arctan2(x, y)/(np.pi/2)+2)
         crate_distance = int(norm([x,y]))
+        """if field_status[tuple(own_position - [0,1])] == 1:
+            crate_distance += 1
+        if field_status[tuple(own_position - [1,0])] == 1:
+            crate_distance += 1
+        if field_status[tuple(own_position + [0,1])] == 1:
+            crate_distance += 1
+        if field_status[tuple(own_position + [1,0])] == 1:
+            crate_distance += 1"""
+
 
 
     #the following block of code refers to the state property of invalid movements and explosions
-    stone_up = 0
-    stone_down = 0
-    stone_left = 0
-    stone_right = 0
-    if field_status[tuple(own_position - [0,1])] == -1 or game_state["explosion_map"][tuple(own_position - [0,1])] != 0:
-        stone_up = 1
-    if field_status[tuple(own_position - [1,0])] == -1 or game_state["explosion_map"][tuple(own_position - [1,0])] != 0:
-        stone_down = 1
-    if field_status[tuple(own_position + [0,1])] == -1 or game_state["explosion_map"][tuple(own_position + [0,1])] != 0:
-        stone_left = 1
-    if field_status[tuple(own_position + [1,0])] == -1 or game_state["explosion_map"][tuple(own_position + [1,0])] != 0:
-        stone_right = 1
-
+    bombs = np.array(sum(np.array(game_state["bombs"],dtype=object).reshape((len(game_state["bombs"]), 2))[:, 0], ())).reshape(
+        len(game_state["bombs"]), 2)
+    others = np.array(sum(np.array(game_state["others"],dtype=object).reshape((len(game_state["others"]), 4))[:, 3], ())).reshape(
+        len(game_state["others"]), 2)
+    if field_status[tuple(own_position - [0,1])] == -1 or game_state["explosion_map"][tuple(own_position - [0,1])]!= 0 \
+            or not np.linalg.norm(np.array(own_position) - [0,1] - bombs, axis = 1).all() or not np.linalg.norm(np.array(own_position) - [0,1] - others, axis = 1).all():
+        up = 1
+    elif field_status[tuple(own_position - [0,1])] == 1:
+        up = 2
+    if field_status[tuple(own_position - [1,0])] == -1 or game_state["explosion_map"][tuple(own_position - [1,0])] != 0\
+            or not np.linalg.norm(np.array(own_position) - [1,0] - bombs, axis = 1).all() or not np.linalg.norm(np.array(own_position) - [1,0] - others, axis = 1).all():
+        left = 1
+    elif field_status[tuple(own_position - [1, 0])] == 1:
+        left = 2
+    if field_status[tuple(own_position + [0,1])] == -1 or game_state["explosion_map"][tuple(own_position + [0,1])] != 0\
+            or not np.linalg.norm(np.array(own_position) + [0,1] - bombs, axis = 1).all() or not np.linalg.norm(np.array(own_position) + [0,1] - others, axis = 1).all():
+        down = 1
+    elif field_status[tuple(own_position + [0, 1])] == 1:
+        down = 2
+    if field_status[tuple(own_position + [1,0])] == -1 or game_state["explosion_map"][tuple(own_position + [1,0])] != 0\
+            or not np.linalg.norm(np.array(own_position) + [1,0] - bombs, axis = 1).all() or not np.linalg.norm(np.array(own_position) + [1,0] - others, axis = 1).all():
+        right = 1
+    elif field_status[tuple(own_position + [1, 0])] == 1:
+        right = 2
 
     #the following block of code refers to the state property of placing bombs
-    bombs = np.array(sum(np.array(game_state["bombs"]).reshape((len(game_state["bombs"]), 2))[:, 0], ())).reshape(
-        len(game_state["bombs"]), 2)
-
     bombstatus = 0
-    if bombs.any():
-        if ((bombs-own_position)[:,0]==0).any() and np.apply_along_axis(norm,1,bombs-own_position).any()<4:
-            bombstatus = 1
-        elif ((bombs-own_position)[:,1]==0).any() and np.apply_along_axis(norm,1,bombs-own_position).any()<4:
+    if bombs.any() and np.max(np.apply_along_axis(norm,1,bombs-own_position))<5:
+        bombstatus = 1
+        if own_position[0] % 2 and ((bombs-own_position)[:,0]==0).any():
             bombstatus = 2
-    print(bombstatus)
-    #print(((bombs-own_position)[:,0]==0).any(),((bombs-own_position)[:,1]==1).any())
-    #print(crate_distance)
-    return reverse_dict[(crate_distance,crate_angle,coin_angle, stone_up, stone_down, stone_left, stone_right, bombstatus)]
+        elif own_position[1] % 2 and ((bombs-own_position)[:,1]==0).any():
+            bombstatus = 3
+    return reverse_dict[(crate_angle,coin_angle, up, down, left, right, bombstatus)]
