@@ -11,8 +11,8 @@ norm = lambda x: np.sqrt(x[0]**2+x[1]**2)
 zustandsdict = {}
 counter = 0
 
-for b,c,d, e, f, g, h in product(range(5),range(5),range(3), range(3), range(3), range(3), range(4)):
-    zustandsdict[counter] = (b, c,d, e, f, g, h)
+for c,d, e, f, g, h in product(range(9),range(3), range(3), range(3), range(3), range(4)):
+    zustandsdict[counter] = (c,d, e, f, g, h)
     counter += 1
 
 reverse_dict = {v: k for k, v in zustandsdict.items()}
@@ -34,9 +34,8 @@ def setup(self):
     """
 
     if self.train or not os.path.isfile("my-saved-model.pt"):
-        print("eeeeeeeee")
         self.logger.info("Setting up model from scratch.")
-        self.Q = np.zeros((5*5*3*3*3*3*4, 6))
+        self.Q = np.zeros((9*3*3*3*3*4, 6))
         with open("my-saved-model.pt", "wb") as file:
             pickle.dump(self.Q, file)
     else:
@@ -68,6 +67,7 @@ def act(self, game_state: dict) -> str:
     self.logger.debug("Querying model for action.")
     action_index  = np.argmax(self.Q[status, :])
     action        = ACTIONS[action_index]
+
     #print(self.Q[status, :])
     return action
 
@@ -94,12 +94,15 @@ def state_to_features(game_state: dict) -> np.array:
     if any(coin_positions):
         relative_coin_positions = coin_positions-own_position
         radii =  np.apply_along_axis(norm,1,relative_coin_positions)
-        minimal_radius = np.argmin(radii)
-        # Calculate angle w.r.t nearest coin
-        x = relative_coin_positions[minimal_radius][0]
-        y = relative_coin_positions[minimal_radius][1]
-        angle = np.arctan2(x, y)+np.pi
-        coin_angle = np.round(angle/(np.pi/2))
+        if np.min(radii) != 0:
+            minimal_radius = np.argmin(radii)
+            # Calculate angle w.r.t nearest coin
+            x = relative_coin_positions[minimal_radius][0]
+            y = relative_coin_positions[minimal_radius][1]
+            angle = np.arctan2(x, y)+np.pi
+            coin_angle = np.round(angle/(np.pi/4))
+        else:
+            coin_angle = 0
     else:
         coin_angle = 0
 
@@ -114,6 +117,7 @@ def state_to_features(game_state: dict) -> np.array:
         y = relative_crate_positions[nearest_crate][1]
         crate_angle = np.round(np.arctan2(x, y)/(np.pi/2)+2)
         crate_distance = int(norm([x,y]))
+
         """if field_status[tuple(own_position - [0,1])] == 1:
             crate_distance += 1
         if field_status[tuple(own_position - [1,0])] == 1:
@@ -122,7 +126,6 @@ def state_to_features(game_state: dict) -> np.array:
             crate_distance += 1
         if field_status[tuple(own_position + [1,0])] == 1:
             crate_distance += 1"""
-
 
 
     #the following block of code refers to the state property of invalid movements and explosions
@@ -159,4 +162,6 @@ def state_to_features(game_state: dict) -> np.array:
             bombstatus = 2
         elif own_position[1] % 2 and ((bombs-own_position)[:,1]==0).any():
             bombstatus = 3
-    return reverse_dict[(crate_angle,coin_angle, up, down, left, right, bombstatus)]
+    #print(coin_angle, up, down, left, right)
+    #print(coin_angle)
+    return reverse_dict[(coin_angle, up, down, left, right, bombstatus)]

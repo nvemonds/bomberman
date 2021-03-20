@@ -36,26 +36,26 @@ def setup_training(self):
     'MOVED_RIGHT': 0,
     'MOVED_UP' : 0,
     'MOVED_DOWN' : 0,
-    'WAITED' : -5,
-    'INVALID_ACTION': -100,
+    'WAITED' : 0,
+    'INVALID_ACTION': -50,
 
     'BOMB_DROPPED' : 0,
     'BOMB_EXPLODED' : 0,
 
-    'CRATE_DESTROYED' :20,
+    'CRATE_DESTROYED' :0,
     'COIN_FOUND' : 0,
-    'COIN_COLLECTED' : 100,
+    'COIN_COLLECTED' : 40,
 
-    'KILLED_OPPONENT' : 20,
+    'KILLED_OPPONENT' : 0,
     'KILLED_SELF' : 0,
 
-    'GOT_KILLED': -100,
+    'GOT_KILLED': 0,
     'OPPONENT_ELIMINATED' : 0,
     'SURVIVED_ROUND' : 0
     }
     # todo: initialize learning rate and discount rate
     self.learning_rate = 0.3
-    self.discount_rate = 0.9
+    self.discount_rate = 0.7
 
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     with open("my-saved-model.pt", "rb") as file:
@@ -84,12 +84,17 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         return None
 
     reward = 0
+    """
+    coin_dist_reduced = len(new_game_state["coins"])>0 and \
+                        np.min(np.linalg.norm(old_game_state["coins"] - np.array(old_game_state['self'][-1]), axis=1)) !=1 and\
+                         (np.min(np.linalg.norm(old_game_state["coins"] - np.array(old_game_state['self'][-1]), axis = 1)) >\
+                          np.min(np.linalg.norm(new_game_state["coins"] - np.array(new_game_state['self'][-1]), axis = 1)))"""
 
-    crate_dist_reduced = (old_game_state["field"] == 1).any() and\
-                         (np.min(np.linalg.norm(np.argwhere(old_game_state["field"]==1)-np.array(old_game_state['self'][-1]),1)) >\
-                          np.min(np.linalg.norm(np.argwhere(new_game_state["field"]==1)-np.array(new_game_state['self'][-1]),1)))
-    if crate_dist_reduced:
-        reward += 15
+    if len(new_game_state["coins"])>0:
+        reward += np.sign((np.min(np.linalg.norm(old_game_state["coins"] - np.array(old_game_state['self'][-1]), axis = 1)) -\
+                          np.min(np.linalg.norm(new_game_state["coins"] - np.array(new_game_state['self'][-1]), axis = 1))))*5*(np.min(np.linalg.norm(old_game_state["coins"] - np.array(old_game_state['self'][-1]), axis = 1)) /\
+                          np.min(np.linalg.norm(new_game_state["coins"] - np.array(new_game_state['self'][-1]), axis = 1)))
+
 
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
     # todo: set old game state based on old_game_state
