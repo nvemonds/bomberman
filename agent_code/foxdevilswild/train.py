@@ -46,10 +46,10 @@ def setup_training(self):
     'COIN_FOUND' : 0,
     'COIN_COLLECTED' : 40,
 
-    'KILLED_OPPONENT' : 0,
-    'KILLED_SELF' : 0,
+    'KILLED_OPPONENT' : 50,
+    'KILLED_SELF' : -50,
 
-    'GOT_KILLED': 0,
+    'GOT_KILLED': -50,
     'OPPONENT_ELIMINATED' : 0,
     'SURVIVED_ROUND' : 0
     }
